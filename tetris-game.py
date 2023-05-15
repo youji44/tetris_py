@@ -1,11 +1,12 @@
-import PIL #used to create textures for the game
-import arcade #used to create the game
+import PIL  # used to create textures for the game
+import arcade  # used to create the game
 from pygame import mixer
 
-SCREEN_TITLE = "Open Tetris"
+SCREEN_TITLE = "Tetris"
+SCREEN_MODE = False
 
 # Initialize music mixer at the beginning
-mixer.init() 
+mixer.init()
 MUSIC_VOLUME = 0.5
 
 # Game board (20x20 cells) customizable
@@ -15,7 +16,7 @@ COLUMNS = 20
 # Setup each cell size [width x height]
 WIDTH = 30
 HEIGHT = 30
-MARGIN = 5 # distance between cells
+MARGIN = 5  # distance between cells
 
 # Calculate screen width and height
 SCREEN_W = (WIDTH + MARGIN) * COLUMNS + MARGIN
@@ -24,79 +25,95 @@ SCREEN_H = (HEIGHT + MARGIN) * ROWS + MARGIN
 # Define colors and shapes of the tetraminos
 colors = [
     (0, 0, 0),
-    (0, 255, 0), 
-    (255, 0, 0), 
-    (0, 255, 255), 
-    (255, 255, 0), 
-    (255, 165, 0), 
-    (0, 0, 255), 
+    (0, 255, 0),
+    (255, 0, 0),
+    (0, 255, 255),
+    (255, 255, 0),
+    (255, 165, 0),
+    (0, 0, 255),
     (255, 0, 255)
 ]
 
 shapes = [
-    #S Shape
+    # S Shape
     [[0, 1, 1],
      [1, 1, 0]],
 
-    #Z Shape
+    # Z Shape
     [[2, 2, 0],
      [0, 2, 2]],
-    
-    #I Shape
+
+    # I Shape
     [[3, 3, 3, 3]],
 
-    #O Shape
+    # O Shape
     [[4, 4],
      [4, 4]],
 
-    #J Shape
+    # J Shape
     [[0, 0, 5],
-    [5, 5, 5]],
+     [5, 5, 5]],
 
-    #L Shape
+    # L Shape
     [[6, 0, 0],
      [6, 6, 6]],
 
-    #T Shape
+    # T Shape
     [[7, 7, 7],
-    [0, 7, 0]]
+     [0, 7, 0]]
 ]
+
 
 def rotate(shape):
     # Rotate the shape matrix 90 degrees clockwise
     return [[shape[y][x] for y in range(len(shape))] for x in range(len(shape[0]) - 1, -1, -1)]
 
+
 def check_collision(board, shape, offset):
     # Check if the given shape will collide with the board 
     # or the currently placed pieces. Offset is a tuple of coordinates in the (x, y) form
-
     x_off, y_off = offset
-    for y_cell, row in enumerate(shape): #for each row of the board
-        for x_cell, cell in enumerate(row): #for each column of the row (cell)
+    for y_cell, row in enumerate(shape):  # for each row of the board
+        for x_cell, cell in enumerate(row):  # for each column of the row (cell)
             if cell and board[y_cell + y_off][x_cell + x_off]:
-                return True #if the cell and the board are colliding
-    return False #if the cell and the board are not colliding
+                return True  # if the cell and the board are colliding
+    return False  # if the cell and the board are not colliding
+
 
 def clear_row(board, row):
     # Remove the row from the board
     del board[row]
     # Replace deleted row with a new one on top of the board
-    return [[0 for _ in range(COLUMNS)]] + board
+    if SCREEN_MODE:
+        return [[0 for _ in range(COLUMNS)]] + board
+    else:
+        return board + [[0 for _ in range(COLUMNS)]]
+
 
 def join_shapes(shape_a, shape_b, offset):
     # Join matrixes of two shapes at the given offset
     x_off, y_off = offset
     for y_cell, row in enumerate(shape_b):
         for x_cell, cell in enumerate(row):
-            shape_a[y_cell + y_off - 1][x_cell + x_off] += cell # Add a new piece to the board
-    return shape_a #return fused shapes
-    
+            if SCREEN_MODE:
+                shape_a[y_cell + y_off - 1][x_cell + x_off] += cell  # Add a new piece to the board
+            else:
+                shape_a[y_cell + y_off + 1][x_cell + x_off] += cell  # Add a new piece to the board
+    return shape_a  # return fused shapes
+
+
 def new_board():
     # Create the game board, the grid is made of 0s in empty slots
     # and 1s at the bottom for a faster collision check
-    board = [[0 for x in range(COLUMNS)] for y in range(ROWS)]
     # add the bottom line of 1s to the board
-    board += [[1 for x in range(COLUMNS)]]
+    if SCREEN_MODE:
+        board = [[0 for x in range(COLUMNS)] for y in range(ROWS)]
+        board += [[1 for x in range(COLUMNS)]]
+    else:
+        board = [[0 for x in range(COLUMNS)]]
+        board += [[1 for x in range(COLUMNS)]]
+        board += [[0 for x in range(COLUMNS)] for y in range(ROWS-1)]
+
     return board
 
 def get_high_score(filename):
@@ -104,72 +121,79 @@ def get_high_score(filename):
     with open(filename, 'r') as f:
         return int(f.read())
 
+
 def texture():
     texture_list = []
     # Create a list of images for sprites based on the global colors
     for i in range(len(colors)):
-        sprite = PIL.Image.new('RGB', (WIDTH, HEIGHT), colors[i]) # create a new image
-        texture_list.append(arcade.Texture(str(colors[i]), sprite)) # add it to the list
+        sprite = PIL.Image.new('RGB', (WIDTH, HEIGHT), colors[i])  # create a new image
+        texture_list.append(arcade.Texture(str(colors[i]), sprite))  # add it to the list
     return texture_list
 
-texture_list = texture() # create a list of textures
 
-import random as rand #used to generate random choices
+texture_list = texture()  # create a list of textures
+
+import random as rand  # used to generate random choices
+
 
 class Tetris(arcade.Window):
     # Define the main class for the game
     def __init__(self, width, height, title):
         # Setup the application
-        super().__init__(width, height, title) # Call the parent class initializer
+        super().__init__(width, height, title)  # Call the parent class initializer
 
-        arcade.set_background_color(arcade.color.BLACK) # Set the background color
+        arcade.set_background_color(arcade.color.BLACK)  # Set the background color
 
-        self.board = None # Initialize the game board
-        self.frame_count = 0 # Initialize the frame count, used for animating the screen
+        self.board = None  # Initialize the game board
+        self.frame_count = 0  # Initialize the frame count, used for animating the screen
         self.score = 0  # Initialize the player score
-        self.high_score = get_high_score("save/high_score.txt") # Initialize the high score
-        self.player = None # Initialize the player name
-        self.game_over = False # Initialize the game over flag
-        self.paused = False # Initialize the pause flag
+        self.high_score = get_high_score("save/high_score.txt")  # Initialize the high score
+        self.player = None  # Initialize the player name
+        self.game_over = False  # Initialize the game over flag
+        self.paused = False  # Initialize the pause flag
 
-        self.board_sprite_list = None # Initialize the board sprite list, used to animate tetraminos
+        self.board_sprite_list = None  # Initialize the board sprite list, used to animate tetraminos
 
-        self.tetramino = None # Initialize the falling tetramino
-        self.x_tetramino = 0 # horizontal position of the tetramino
-        self.y_tetramino = 0 # vertical position of the tetramino
+        self.tetramino = None  # Initialize the falling tetramino
+        self.x_tetramino = 0  # horizontal position of the tetramino
+        self.y_tetramino = 0  # vertical position of the tetramino
 
-        self.set_user() # Set the user name
-        self.set_mouse_visible(False) # Initialize the mouse visibility
+        self.set_user()  # Set the user name
+        self.set_mouse_visible(False)  # Initialize the mouse visibility
 
     def new_tetramino(self):
         # Randomly create a new tetramino,
         # if we immediately collide at the top of the screen is game-over
-        
-        self.tetramino = rand.choice(shapes) # choose a random shape
+
+        self.tetramino = rand.choice(shapes)  # choose a random shape
 
         self.x_tetramino = int(COLUMNS / 2) - int(len(self.tetramino[0]) / 2)
-        self.y_tetramino = 0
+
+        if SCREEN_MODE:
+            self.y_tetramino = 0
+        else:
+            self.y_tetramino = ROWS-1
 
         if check_collision(self.board, self.tetramino, (self.x_tetramino, self.y_tetramino)):
             self.game_over = True
-            if(self.score > self.high_score):
-                mixer.music.stop() # stop the music
+            if (self.score > self.high_score):
+                mixer.music.stop()  # stop the music
                 mixer.music.load('music/high_score.mp3')
-                mixer.music.play() # play the music
+                mixer.music.play()  # play the music
                 # If the score is higher than the high score, save it
                 self.high_score = self.score
                 with open("save/high_score.txt", "w") as f:
                     # Write the high score to the file
                     f.write(str(self.high_score) + "\t\t" + str(self.player))
             else:
-                mixer.music.stop() # stop the music
+                mixer.music.stop()  # stop the music
                 mixer.music.load('music/game_over.mp3')
-                mixer.music.play() # play the music
+                mixer.music.play()  # play the music
                 # If the score is lower than the high score, save it in a different file
                 with open("save/scores.txt", "a") as f:
                     # Write the high score to the file
                     f.write(str(self.score) + "\t\t" + str(self.player) + "\n")
-            self.set_mouse_visible(True) # make the mouse visible
+            self.set_mouse_visible(True)  # make the mouse visible
 
     def set_user(self):
         # Set the user name
@@ -177,47 +201,66 @@ class Tetris(arcade.Window):
         self.player = name
 
     def setup(self):
-        self.board = new_board() # Create a new board
+        self.board = new_board()  # Create a new board
 
         # start music engine and play the music
-        mixer.music.load('music/level_music.mp3') # Load the music
-        mixer.music.play(-1) # Play the music in loop
+        mixer.music.load('music/level_music.mp3')  # Load the music
+        mixer.music.play(-1)  # Play the music in loop
 
-        self.board_sprite_list = arcade.SpriteList() # Create a new sprite list for the board
+        self.board_sprite_list = arcade.SpriteList()  # Create a new sprite list for the board
         for row in range(len(self.board)):
             for column in range(len(self.board[0])):
-                sprite = arcade.Sprite() 
+                sprite = arcade.Sprite()
                 # Associate texture to sprite
                 for texture in texture_list:
                     sprite.append_texture(texture)
-                sprite.set_texture(0)
+
                 sprite.center_x = (MARGIN + WIDTH) * column + WIDTH // 2 + MARGIN
                 sprite.center_y = SCREEN_H - (MARGIN + HEIGHT) * row + HEIGHT // 2 + MARGIN
-                
+
                 self.board_sprite_list.append(sprite)
 
-        self.new_tetramino() # Create a new tetramino
-        self.update_board() # Update the board
+        self.new_tetramino()  # Create a new tetramino
+        self.update_board()  # Update the board
 
     def drop(self):
         # Drop the tetramino one place down,
         # then check for collisions
         if self.game_over == False and self.paused == False:
-            self.y_tetramino += 1 #move the tetramino one row down
+
+            if SCREEN_MODE:
+                self.y_tetramino += 1  # move the tetramino one row down
+            else:
+                self.y_tetramino -= 1
+
             if check_collision(self.board, self.tetramino, (self.x_tetramino, self.y_tetramino)):
                 self.board = join_shapes(self.board, self.tetramino, (self.x_tetramino, self.y_tetramino))
+
                 while True:
                     # Check for rows to clear
-                    for _, row in enumerate(self.board[:-1]):
-                        if 0 not in row:
-                            self.score += 10
-                            self.board = clear_row(self.board, _)
+                    if SCREEN_MODE:
+                        for _, row in enumerate(self.board[:-1]):
+                            if 0 not in row:
+                                self.score += 10
+                                self.board = clear_row(self.board, 2+_)
+                                print(self.board)
+                                break
+                        else:
                             break
                     else:
-                        break
-                self.update_board() # Update the board
-                self.new_tetramino() # Create a new tetramino
-    
+                        for _, row in enumerate(self.board[2:ROWS - 1]):
+                            if 0 not in row:
+                                self.score += 10
+                                self.board = clear_row(self.board, 2 + _)
+                                print(self.board)
+                                break
+                        else:
+                            break
+
+                self.update_board()  # Update the board
+                self.new_tetramino()  # Create a new tetramino
+
+
     def pause(self):
         self.paused = not self.paused
         if self.paused == True:
@@ -234,7 +277,7 @@ class Tetris(arcade.Window):
 
     def on_update(self, dt):
         self.frame_count += 1
-        if self.frame_count % 11 == 0: #move a piece down every 10 frames
+        if self.frame_count % 20 == 0:  # move a piece down every 10 frames
             self.drop()
 
     def move(self, delta):
@@ -270,39 +313,46 @@ class Tetris(arcade.Window):
         for row in range(len(grid)):
             for column in range(len(grid[0])):
                 if grid[row][column]:
-                    color = colors[grid[row][column]] # get the color of the block
+                    color = colors[grid[row][column]]  # get the color of the block
                     # Calculate the cell where to draw
                     x = (MARGIN + WIDTH) * (column + x_off) + MARGIN + WIDTH // 2
                     y = SCREEN_H - (MARGIN + HEIGHT) * (row + y_off) + MARGIN + HEIGHT // 2
 
-                    arcade.draw_rectangle_filled(x, y, WIDTH, HEIGHT, color) # Draw the cell color
+                    arcade.draw_rectangle_filled(x, y, WIDTH, HEIGHT, color)  # Draw the cell color
 
     def update_board(self):
         # Update the sprite list to reflect the content of our game board
-        for row in range(len(self.board)): 
-            for column in range(len(self.board[0])): 
+
+        for row in range(len(self.board)):
+            for column in range(len(self.board[0])):
                 cell = self.board[row][column]
                 index = row * COLUMNS + column
-                
                 # Set the texture of the sprite
-                self.board_sprite_list[index].set_texture(cell) 
-    
+                self.board_sprite_list[index].set_texture(cell)
+
     def on_draw(self):
         # Render the screen
-        arcade.start_render() # Initialize screen rendering before we start
+        arcade.start_render()  # Initialize screen rendering before we start
         self.board_sprite_list.draw()
-        arcade.draw_text(str(self.player)+"'s Score: "+ str(self.score), 0, SCREEN_H-30, arcade.color.WHITE, 20) # Draw score text
+        if SCREEN_MODE:
+            h = SCREEN_H-30
+        else:
+            h = 30
+        arcade.draw_text(str(self.player) + "'s Score: " + str(self.score), 0, h, arcade.color.WHITE, 20)  # Draw score text
         self.draw_grid(self.tetramino, self.x_tetramino, self.y_tetramino)
-        if(self.game_over == True):
-            arcade.draw_text("Game Over", WIDTH / 2, HEIGHT / 2 + 100, arcade.color.CYAN, 50, align="center")
-            arcade.draw_text("Press ESC to Exit", WIDTH / 2 + 50, HEIGHT / 2 + 60, arcade.color.CYAN, 20, align="center", bold = True)
+
+        if self.game_over:
+
+            arcade.draw_text("Game Over!", SCREEN_W / 2 - 100, SCREEN_H / 2, arcade.color.CYAN, 20)
+            arcade.draw_text("Press ESC to Exit", SCREEN_W / 2 - 100, SCREEN_H / 2 - 60, arcade.color.CYAN, 16)
+
 
 def main():
     # main function
     game = Tetris(SCREEN_W, SCREEN_H, SCREEN_TITLE)
-    game.setup() # Setup the game
-    arcade.run() # Run the game
+    game.setup()  # Setup the game
+    arcade.run()  # Run the game
+
 
 if __name__ == "__main__":
     main()
-
